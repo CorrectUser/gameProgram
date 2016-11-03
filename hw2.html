@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00
+}
+body {
+  overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+<div id="info">hw2
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script>
+<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+<script type="text/javascript">
+  document.oncontextmenu = function() {
+    return false;
+  }
+
+</script>
+<script>
+var camera, scene, renderer;
+var satellite, angle = 0;
+var mousePoint;
+var mouse = new THREE.Vector2();
+//var stats;
+var pos, vel, force;
+var clock = new THREE.Clock();
+var ball;
+
+var keyboard = new KeyboardState();
+
+var ballR = 3;
+init();
+animate();
+
+function init() {
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+
+  pos = new THREE.Vector3(20, 40, 0);
+  vel = new THREE.Vector3(0, 0, 0);
+  //force = new THREE.Vector3(0, -90, 0);
+
+
+  /*
+    // STATS
+  	stats = new Stats();
+  	stats.domElement.style.position = 'absolute';
+  	stats.domElement.style.top = '0px';
+  	stats.domElement.style.zIndex = 100;
+  	document.body.appendChild( stats.domElement );	
+  */
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  camera = new THREE.OrthographicCamera(-50, 50, 80, -20, -10, 100);
+  camera.position.z = 10;
+  scene.add(camera);
+	
+  THREE.ImageUtils.crossOrigin = '';
+  texture = THREE.ImageUtils.loadTexture('http://hiphotos.baidu.com/hinata2/pic/item/b51dfc0314180db0d53f7c12.jpg');
+  texture.wrapS = THREE.RepeatWrapping;
+  // setting up texMat
+
+	// Plane with default texture coordinates [0,1]x[0,1]
+	var texMat = new THREE.MeshBasicMaterial({map: texture});
+ 
+  
+  for (var i = 0; i < 5; i++) {
+    var background = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), texMat);
+    background.position.y = 30;
+    background.position.x = i * 100;
+    scene.add(background);
+  }
+  window.addEventListener('resize', onWindowResize, false);
+  
+  
+
+  // what's in the scene? [depth]
+  // bordere (blue lines) [0]
+  // satellite (white circle) [1]
+  // mousePoint (red circle) [2]
+  // background (dark yellow quad) [3]
+  //
+  // all on XY plane: rely on polygonOffset to sort things out
+  // line object remains at frontmost
+
+  ////////////////////////////////////////////////////////////////////////////////////////////
+  ball = new THREE.Mesh(new THREE.CircleGeometry(ballR, 20), new THREE.MeshBasicMaterial({
+    color: 0x000fff
+  }));
+  scene.add(ball);
+  ball.position.y = 30;
+
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 50), new THREE.MeshBasicMaterial({
+    color: 0x3ee50b
+  }));
+  scene.add(ground);
+  ground.position.y = -25;
+  ground.position.x = 200; // this is WRong!!!
+
+  window.addEventListener('resize', onWindowResize, false);
+  // window.addEventListener('mousedown', onDocumentMouseDow  n, false);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  var dt = clock.getDelta();
+	
+  
+  keyboard.update();
+ 
+   
+	force = new THREE.Vector3(0, -150, 0);
+   if (keyboard.pressed("right")) {
+   		force = new THREE.Vector3(100, -150, 0);
+    }
+    if(keyboard.up("right")){ 
+    		force = new THREE.Vector3(0, -150, 0);
+     }
+    if (keyboard.pressed("left")) {
+    	 force = new THREE.Vector3(-100, -150, 0);
+       
+    }
+    if(keyboard.up("left")){
+   			force = new THREE.Vector3(0, -150, 0);
+      }
+   if (keyboard.down('space')) {
+    if (pos.y < ballR) vel.y += 100;
+  }
+	
+  vel.x *= 0.96;
+  
+
+  console.log(camera.position.x);
+
+
+  // force: add gravity first
+  
+  if (pos.y <= ballR) { // if contact, add contact force
+    force.add(new THREE.Vector3(0, 150, 0));
+  }
+	
+  // then do Euler's
+  vel.add(force.clone().multiplyScalar(dt));
+  pos.add(vel.clone().multiplyScalar(dt));
+  if(pos.x <= -47){
+  		pos.x =-47;
+    }
+  else ball.position.copy(pos);
+  if(pos.x >= 447){
+  		pos.x = 447;
+  }else ball.position.copy(pos);
+
+  if(ball.position.x >= 0 && ball.position.x <= 400) camera.position.x = ball.position.x;
+  
+  // collision
+  // if (x-p).n < 0 then hit
+  /*
+  if (pos.clone().sub(planeP).dot(planeN) < 0) {
+  	pos.y = 30;
+    vel.set (0,0,0);
+    }
+    */
+  // bounce back
+  if (pos.y <= ballR) {
+    //pos.y = ballR;
+    vel.y *= -.55;
+  }
+
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+  renderer.render(scene, camera);
+}
+
+//window.focus();
+</script>
+</body>
+</html>
