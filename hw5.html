@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<style>
+	body {
+	  background-color: #fff;
+	  color: #111;
+	  margin: 0px;
+	  overflow: hidden;
+	  font-family: Monospace;
+	  font-size: 20px;
+	}
+	
+	#info {
+	  position: absolute;
+	  top: 0px;
+	  width: 100%;
+	  padding: 5px;
+	  text-align: center;
+	  color: #ffff00
+	}
+
+</style>
+</head>
+<body>
+<div id="info">
+  HW5   Drum Beater
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script>
+<script src="https://dl.dropboxusercontent.com/u/3587259/Code/Threejs/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5.1/dat.gui.min.js"></script>
+<br>
+<button onclick="Left()">PlayLeftHand</button>
+<button onclick="Right()">PlayRightHand</button>
+<audio id="hitSound" style="display:none">
+<source src="https://raw.githubusercontent.com/CorrectUser/gameProgram/gh-pages/DrumSound.mp3" type='audio/mpeg'>
+</audio>
+<script>
+var scene, renderer, camera, controls;
+var body, lowerArm, upperArm, upperArm2, lowerArm2;
+
+var ClickL = false, ClickR = false;
+var gcontrols;
+var theta1 = 0,
+  theta2 = 0,
+  theta3 = 0;
+var torsoTurn = 0;
+var angle = 1.28, angleR = -1.28;
+
+
+init();
+animate();
+
+function loadJSON(){
+	return{
+  "preset": "key1",
+  "remembered": {
+    "Default": {
+      "0": {
+        "shoulderX": 0.1,
+        "shoulderZ": 0.1,
+        "elbowX": 0.1
+      }
+    },
+    "key1": {
+      "0": {
+        "shoulderX": -1.2729422894985807,
+        "shoulderZ": 0.1,
+        "elbowX": -1.3053791052844979
+      }
+    },
+    "key2": {
+      "0": {
+        "shoulderX": -0.00790647384781673,
+        "shoulderZ": 0.1,
+        "elbowX": -1.3053791052844979
+      }
+    }
+  },
+  "closed": false,
+  "folders": {}
+	}
+}
+
+
+function buildBody () {
+  var body = new THREE.Object3D();
+  var boxGeometry = new THREE.BoxGeometry(50, 100, 30);
+  var bodyMesh = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  bodyMesh.position.set(0, 50, 0);
+  body.add(bodyMesh);
+
+  var boxGeometry = new THREE.BoxGeometry(10, 40, 10);
+  var arm = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  upperArm = new THREE.Object3D();
+  upperArm.add(arm);
+  arm.position.set(-5, -25, 0);
+  body.add(upperArm);
+  upperArm.position.set(-25, 100, 0);
+
+	boxGeometry = new THREE.BoxGeometry(10, 40, 10);
+  arm2 = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  lowerArm = new THREE.Object3D();
+  lowerArm.position.set(0, -35, 0);
+  lowerArm.rotation.x = -1.3053791052844979;
+  upperArm.add(lowerArm);
+  lowerArm.add(arm2);
+  arm2.position.set(-5, -30, 0);
+///////////////////////////////////////////
+	var armC = arm.clone();
+	upperArm2 = new THREE.Object3D();
+  upperArm2.add(armC);
+  armC.position.set(5, -25, 0);
+  body.add(upperArm2);
+  upperArm2.position.set(25, 100, 0);
+  
+  var armD = arm2.clone();
+  lowerArm2 = new THREE.Object3D();
+  lowerArm2.position.set(0, -35, 0);
+  lowerArm2.rotation.x = -1.3053791052844979;
+  upperArm2.add(lowerArm2);
+  lowerArm2.add(armD);
+  armD.position.set(5, -30, 0);
+  
+  var head = new THREE.Mesh(new THREE.SphereGeometry( 20, 32, 32 ),new THREE.MeshNormalMaterial());
+  body.add(head);
+  head.position.set(0, 120, 0);
+	
+  var leftleg = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20),new THREE.MeshNormalMaterial());
+  body.add(leftleg);
+  leftleg.position.set(15, -30 ,0);
+  
+  var rightleg = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20),new THREE.MeshNormalMaterial());
+  body.add(rightleg);
+  rightleg.position.set(-10, -30 ,0);
+  
+  var drum = new THREE.Mesh(new THREE.CylinderGeometry( 30, 30, 50, 32 ),new THREE.MeshNormalMaterial());
+  body.add(drum);
+  drum.rotation.z = Math.PI / 2;
+  drum.position.set(0,50,40);
+
+	 var bar = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 25), new THREE.MeshNormalMaterial());
+   lowerArm.add(bar);
+   bar.rotation.x = -Math.PI / 6;
+   bar.position.set(0, -60, 5);
+   
+   var bar2 = bar.clone();
+   lowerArm2.add(bar2);
+   bar2.rotation.x = -Math.PI / 6;
+   bar2.position.set(0, -60, 5);
+   
+	return body;
+}
+
+function init() {
+
+	var width = window.innerWidth;
+  var height = window.innerHeight;
+
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setSize(width, height);
+  renderer.setClearColor(0x888888);
+
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 10000);
+  camera.position.y = 600;
+  camera.position.z = 300;
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+  scene.add(camera);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+	var gridXZ = new THREE.GridHelper(100, 10);
+  gridXZ.setColors(new THREE.Color(0xff0000), new THREE.Color(0xffffff));
+  scene.add(gridXZ);
+  window.addEventListener('resize', onWindowResize, false);
+
+  /////////////////////////////////////////////////
+  body = buildBody ();
+  scene.add(body);
+  body.position.set(0, 60, -35);
+  body.rotation.y =0;// Math.PI/12;  // torsoTurn
+
+	////////////////////////////////////////////////////////////   
+	// intial values must be POSITIVE
+  gcontrols = {
+
+shoulderX: 0.1,
+    shoulderZ: 0.1,
+    elbowX: 0.1,
+  };
+
+  var gui = new dat.GUI({
+  	load: loadJSON(),
+    preset: 'key1'
+  });
+  
+  gui.domElement.id = 'gui';
+  gui.remember(gcontrols);
+  
+	  gui.add(gcontrols, 'shoulderX', -1.5, 1.5);
+  gui.add(gcontrols, 'shoulderZ', -1.5, 1.5);
+  gui.add(gcontrols, 'elbowX', -1.5, 1.5); 
+}
+
+function Left(){
+	ClickL = true;
+}
+function Right(){
+	ClickR = true;
+}
+
+function animate() {
+	this.sign = (this.sign === undefined)? 1 : this.sign;
+ 
+  if (angle > 1.2729422894985807 )
+  {
+  	this.sign *= -1;
+    angle += 0.02 * this.sign;
+    ClickL = false;
+  }
+  if(ClickL == true) angle += 0.02 * this.sign;
+    
+  if( angle < -0.00790647384781673)	{
+  		this.sign *= -1;
+      hitSound.play();
+    }
+ 
+  upperArm2.rotation.z = angle;
+  ///////////////////////////////////////////////////////
+  if(angleR < -1.2729422894985807)
+  {
+  	this.sign *= -1;
+    angleR += 0.02 * this.sign;
+    ClickR = false;
+  }
+  if(ClickR == true) angleR += 0.02 * this.sign;
+  if( angleR > -0.00790647384781673) 
+  {
+  	this.sign *= -1;
+    hitSound.play();
+  }
+  upperArm.rotation.z = angleR;  
+  
+  requestAnimationFrame(animate);
+  update();
+  render();
+}
+
+function update() {
+  controls.update();
+
+  theta1 = gcontrols.shoulderX;
+  theta2 = gcontrols.shoulderZ;
+  theta3 = gcontrols.elbowX;
+}
+
+function onWindowResize() {
+  var width = window.innerWidth,
+    height = window.innerHeight;
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(width, height);
+}
+
+
+function render() {
+  /*upperArm.rotation.z = theta1;
+  upperArm.rotation.x = theta2;
+  upperArm.rotation.order = 'ZXY';
+
+  lowerArm.rotation.x = theta3;*/
+
+  renderer.render(scene, camera);
+}
+
+</script>
+</body>
